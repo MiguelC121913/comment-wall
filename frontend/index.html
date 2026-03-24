@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Comment Wall</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --primary:  #6366f1;
+      --primary2: #4f46e5;
+      --danger:   #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --success:  #22c55e;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+
+    header p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #a78bfa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 18px;
+    }
+
+    /* ── FORM ── */
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border 0.2s;
+      margin-bottom: 14px;
+      resize: none;
+    }
+
+    input:focus, textarea:focus { border-color: var(--primary); }
+
+    .error-msg {
+      font-size: 0.78rem;
+      color: #f87171;
+      margin-top: -10px;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    .char-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: right;
+      margin-top: -12px;
+      margin-bottom: 12px;
+    }
+
+    .char-count.too-short { color: #f87171; }
+    .char-count.ok        { color: var(--success); }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 11px 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: inherit;
+    }
+
+    button:hover  { opacity: 0.88; }
+    button:active { transform: scale(0.97); }
+
+    .btn-publish {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: white;
+    }
+
+    .btn-publish:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--success);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 0.88rem;
+      color: var(--text);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { border-left-color: var(--danger); }
+
+    /* ── COMENTARIOS ── */
+    .comments-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .comments-header h2 { margin-bottom: 0; }
+
+    .count-badge {
+      background: var(--primary);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+
+    /* ── LISTA ── */
+    #comments-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 520px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    #comments-list::-webkit-scrollbar { width: 5px; }
+    #comments-list::-webkit-scrollbar-track { background: transparent; }
+    #comments-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    /* ── COMMENT CARD ── */
+    .comment-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #a78bfa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .comment-body { flex: 1; min-width: 0; }
+
+    .comment-meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .comment-username {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #a78bfa;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .comment-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .comment-message {
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .btn-delete {
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .btn-delete:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+      background: rgba(239,68,68,0.08);
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ── LOADING ── */
+    .loading {
+      text-align: center;
+      padding: 30px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>💬 Comment Wall</h1>
+  <p>Comparte tus pensamientos con el mundo</p>
+</header>
+
+<div class="container">
+
+  <!-- ── FORMULARIO ── -->
+  <div class="card">
+    <h2>✏️ Nuevo comentario</h2>
+
+    <label for="input-username">Tu nombre</label>
+    <input
+      type="text"
+      id="input-username"
+      placeholder="¿Cómo te llamas?"
+      maxlength="30"
+      autocomplete="off"
+    />
+    <div class="error-msg" id="err-username">El nombre no puede estar vacío.</div>
+
+    <label for="input-message">Mensaje</label>
+    <textarea
+      id="input-message"
+      rows="3"
+      placeholder="Escribe algo interesante..."
+      maxlength="300"
+    ></textarea>
+    <div class="char-count" id="char-count">0 / 300</div>
+    <div class="error-msg" id="err-message">El mensaje debe tener al menos 5 caracteres.</div>
+
+    <button class="btn-publish" id="btn-publish" onclick="handlePublish()">
+      Publicar comentario
+    </button>
+  </div>
+
+  <!-- ── LISTA ── -->
+  <div class="card">
+    <div class="comments-header">
+      <h2>🗨️ Comentarios</h2>
+      <span class="count-badge" id="count-badge">0</span>
+    </div>
+
+    <div id="comments-list">
+      <div class="loading"><span class="spinner"></span>Cargando comentarios...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast de notificación -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ═══════════════════════════════════════════
+  // CONFIGURACIÓN
+  // ═══════════════════════════════════════════
+  const API_URL = 'http://localhost:3000/comments';
+
+  // ═══════════════════════════════════════════
+  // CAPA DE API — solo fetch, sin tocar el DOM
+  // ═══════════════════════════════════════════
+  const api = {
+
+    async getAll() {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error(`Error ${res.status} al obtener comentarios`);
+      return res.json();
+    },
+
+    async create(username, message) {
+      const fecha = new Date().toISOString();
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, message, date: fecha })
+      });
+      if (!res.ok) throw new Error(`Error ${res.status} al crear comentario`);
+      return res.json();
+    },
+
+    async remove(id) {
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Error ${res.status} al eliminar comentario`);
+    }
+
+  };
+
+  // ═══════════════════════════════════════════
+  // CAPA DE UI — solo manipulación del DOM
+  // ═══════════════════════════════════════════
+  const ui = {
+
+    // Renderiza toda la lista de comentarios
+    renderComments(comments) {
+      const list = document.getElementById('comments-list');
+      const badge = document.getElementById('count-badge');
+
+      badge.textContent = comments.length;
+
+      if (comments.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🌵</div>
+            <p>No hay comentarios aún.<br/>¡Sé el primero en escribir!</p>
+          </div>`;
+        return;
+      }
+
+      // Ordenar del más reciente al más antiguo
+      const sorted = [...comments].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+
+      list.innerHTML = sorted.map(c => ui.buildCard(c)).join('');
+    },
+
+    // Construye el HTML de una card
+    buildCard(comment) {
+      const initial = (comment.username || '?')[0].toUpperCase();
+      const timeAgo = ui.formatTimeAgo(comment.date);
+
+      return `
+        <div class="comment-card" id="card-${comment.id}">
+          <div class="avatar">${initial}</div>
+          <div class="comment-body">
+            <div class="comment-meta">
+              <span class="comment-username">${ui.escape(comment.username)}</span>
+              <span class="comment-time">${timeAgo}</span>
+            </div>
+            <p class="comment-message">${ui.escape(comment.message)}</p>
+          </div>
+          <button class="btn-delete" onclick="handleDelete(${comment.id})" title="Eliminar">
+            🗑️
+          </button>
+        </div>`;
+    },
+
+    // Agrega una card al inicio sin re-renderizar todo
+    prependCard(comment) {
+      const list = document.getElementById('comments-list');
+
+      // Quitar empty state si existe
+      const empty = list.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      list.insertAdjacentHTML('afterbegin', ui.buildCard(comment));
+
+      const badge = document.getElementById('count-badge');
+      badge.textContent = parseInt(badge.textContent) + 1;
+    },
+
+    // Elimina una card del DOM
+    removeCard(id) {
+      const card = document.getElementById(`card-${id}`);
+      if (card) {
+        card.style.animation = 'none';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(20px)';
+        card.style.transition = 'all 0.2s';
+        setTimeout(() => {
+          card.remove();
+          const list = document.getElementById('comments-list');
+          const badge = document.getElementById('count-badge');
+          const newCount = parseInt(badge.textContent) - 1;
+          badge.textContent = newCount;
+
+          if (newCount === 0) {
+            list.innerHTML = `
+              <div class="empty-state">
+                <div class="icon">🌵</div>
+                <p>No hay comentarios aún.<br/>¡Sé el primero en escribir!</p>
+              </div>`;
+          }
+        }, 200);
+      }
+    },
+
+    // Muestra/oculta errores del formulario
+    showError(id, show) {
+      document.getElementById(id).classList.toggle('visible', show);
+    },
+
+    // Limpia el formulario
+    clearForm() {
+      document.getElementById('input-username').value = '';
+      document.getElementById('input-message').value  = '';
+      document.getElementById('char-count').textContent = '0 / 300';
+      document.getElementById('char-count').className  = 'char-count';
+    },
+
+    // Muestra toast de notificación
+    toast(message, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = message;
+      t.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => { t.className = 'toast'; }, 3000);
+    },
+
+    // Escapa HTML para evitar XSS
+    escape(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    },
+
+    // Formatea fecha como "Hace X minutos"
+    formatTimeAgo(dateStr) {
+      const diff = (Date.now() - new Date(dateStr)) / 1000;
+      if (diff < 60)          return 'Hace unos segundos';
+      if (diff < 3600)        return `Hace ${Math.floor(diff / 60)} min`;
+      if (diff < 86400)       return `Hace ${Math.floor(diff / 3600)} h`;
+      if (diff < 2592000)     return `Hace ${Math.floor(diff / 86400)} días`;
+      return new Date(dateStr).toLocaleDateString('es-MX', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+    }
+
+  };
+
+  // ═══════════════════════════════════════════
+  // VALIDACIONES
+  // ═══════════════════════════════════════════
+  function validate() {
+    const username = document.getElementById('input-username').value.trim();
+    const message  = document.getElementById('input-message').value.trim();
+
+    let valid = true;
+
+    if (!username) {
+      ui.showError('err-username', true);
+      valid = false;
+    } else {
+      ui.showError('err-username', false);
+    }
+
+    if (message.length < 5) {
+      ui.showError('err-message', true);
+      valid = false;
+    } else {
+      ui.showError('err-message', false);
+    }
+
+    return valid;
+  }
+
+  // ═══════════════════════════════════════════
+  // MANEJADORES DE EVENTOS
+  // ═══════════════════════════════════════════
+
+  // Cargar comentarios al iniciar
+  async function loadComments() {
+    try {
+      const comments = await api.getAll();
+      ui.renderComments(comments);
+    } catch (err) {
+      document.getElementById('comments-list').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>No se pudo conectar al servidor.<br/>
+          ¿Está corriendo <strong>npm start</strong>?</p>
+        </div>`;
+      ui.toast('Error al cargar comentarios', true);
+    }
+  }
+
+  // Publicar comentario
+  async function handlePublish() {
+    if (!validate()) return;
+
+    const username = document.getElementById('input-username').value.trim();
+    const message  = document.getElementById('input-message').value.trim();
+    const btn      = document.getElementById('btn-publish');
+
+    btn.disabled    = true;
+    btn.textContent = 'Publicando...';
+
+    try {
+      const newComment = await api.create(username, message);
+      ui.prependCard(newComment);
+      ui.clearForm();
+      ui.toast('¡Comentario publicado!');
+    } catch (err) {
+      ui.toast('Error al publicar. Intenta de nuevo.', true);
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Publicar comentario';
+    }
+  }
+
+  // Eliminar comentario
+  async function handleDelete(id) {
+    const confirmed = confirm('¿Seguro que quieres eliminar este comentario?');
+    if (!confirmed) return;
+
+    try {
+      await api.remove(id);
+      ui.removeCard(id);
+      ui.toast('Comentario eliminado');
+    } catch (err) {
+      ui.toast('Error al eliminar. Intenta de nuevo.', true);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // CONTADOR DE CARACTERES EN TIEMPO REAL
+  // ═══════════════════════════════════════════
+  document.getElementById('input-message').addEventListener('input', function () {
+    const len    = this.value.length;
+    const count  = document.getElementById('char-count');
+    count.textContent = `${len} / 300`;
+    count.className   = 'char-count' + (len >= 5 ? ' ok' : ' too-short');
+
+    // Ocultar error si ya cumple
+    if (len >= 5) ui.showError('err-message', false);
+  });
+
+  // Ocultar error de username al escribir
+  document.getElementById('input-username').addEventListener('input', function () {
+    if (this.value.trim()) ui.showError('err-username', false);
+  });
+
+  // ═══════════════════════════════════════════
+  // INICIAR APP
+  // ═══════════════════════════════════════════
+  loadComments();
+</script>
+</body>
+</html>
