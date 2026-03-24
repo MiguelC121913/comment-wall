@@ -1,9 +1,15 @@
 const jsonServer  = require('json-server')
+const fs          = require('fs')
 const app         = jsonServer.create()
+
+// Si no existe db.json lo crea vacío
+if (!fs.existsSync('./db.json')) {
+  fs.writeFileSync('./db.json', JSON.stringify({ comments: [] }, null, 2))
+}
+
 const router      = jsonServer.router('db.json')
 const middlewares = jsonServer.defaults()
 
-// ← Esto es lo que faltaba: habilitar CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
   res.header('Access-Control-Allow-Headers', '*')
